@@ -1,12 +1,23 @@
-#include <vector>
-#include <string>
+#include "parser.h"
 
-struct ASTNode {
-    std::string type;
-    std::string value;
-};
+Parser::Parser(Lexer& lexer) : lexer(lexer) {
+    advance();
+}
 
-ASTNode parse(const std::vector<Token>& tokens) {
-    // Parsing logic here
-    // Same as before
+void Parser::advance() {
+    currentToken = lexer.getNextToken();
+}
+
+ASTNode* Parser::parse() {
+    return parseExpression();  // Simple example: start with expressions
+}
+
+ASTNode* Parser::parseExpression() {
+    // Build the AST based on tokens, for example:
+    if (currentToken.type == NUMBER) {
+        ASTNode* node = new ASTNode(ASTNodeType::Literal, currentToken.value);
+        advance();
+        return node;
+    }
+    // Handle more complex expressions...
 }
