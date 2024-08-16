@@ -11,7 +11,8 @@ struct ASTNode {
     std::string value;
     std::vector<ASTNode*> children;
 
-    ASTNode(ASTNodeType type, const std::string& value) : type(type), value(value) {}
+    // Declaration only, no implementation here
+    ASTNode(ASTNodeType type, const std::string& value);
 };
 
 #endif
