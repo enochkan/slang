@@ -1,4 +1,4 @@
 # macOS system files
 .DS_Store
-
+.vscode/*
 # Ignore other files and directories
