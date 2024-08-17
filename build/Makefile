@@ -156,6 +156,32 @@ acc_gen/fast:
 .PHONY : acc_gen/fast
 
 #=============================================================================
+# Target rules for targets named ARMTargetParserTableGen
+
+# Build rule for target.
+ARMTargetParserTableGen: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 ARMTargetParserTableGen
+.PHONY : ARMTargetParserTableGen
+
+# fast build rule for target.
+ARMTargetParserTableGen/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/ARMTargetParserTableGen.dir/build.make CMakeFiles/ARMTargetParserTableGen.dir/build
+.PHONY : ARMTargetParserTableGen/fast
+
+#=============================================================================
+# Target rules for targets named AArch64TargetParserTableGen
+
+# Build rule for target.
+AArch64TargetParserTableGen: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 AArch64TargetParserTableGen
+.PHONY : AArch64TargetParserTableGen
+
+# fast build rule for target.
+AArch64TargetParserTableGen/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/AArch64TargetParserTableGen.dir/build.make CMakeFiles/AArch64TargetParserTableGen.dir/build
+.PHONY : AArch64TargetParserTableGen/fast
+
+#=============================================================================
 # Target rules for targets named RISCVTargetParserTableGen
 
 # Build rule for target.
@@ -333,6 +359,8 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... AArch64TargetParserTableGen"
+	@echo "... ARMTargetParserTableGen"
 	@echo "... RISCVTargetParserTableGen"
 	@echo "... acc_gen"
 	@echo "... intrinsics_gen"

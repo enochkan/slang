@@ -67,7 +67,7 @@ CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
 
 //Flags used by the linker during all build types.
-CMAKE_EXE_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
+CMAKE_EXE_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during DEBUG builds.
 CMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=
@@ -101,7 +101,7 @@ CMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/make
 
 //Flags used by the linker during the creation of modules during
 // all build types.
-CMAKE_MODULE_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
+CMAKE_MODULE_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during the creation of modules during
 // DEBUG builds.
@@ -156,7 +156,7 @@ CMAKE_READELF:FILEPATH=CMAKE_READELF-NOTFOUND
 
 //Flags used by the linker during the creation of shared libraries
 // during all build types.
-CMAKE_SHARED_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
+CMAKE_SHARED_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during the creation of shared libraries
 // during DEBUG builds.
@@ -231,8 +231,8 @@ LIBXML2_LIBRARY:FILEPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk
 //Path to a program.
 LIBXML2_XMLLINT_EXECUTABLE:FILEPATH=/usr/bin/xmllint
 
-//The directory containing a CMake configuration file for LLVM.
-LLVM_DIR:PATH=/usr/local/opt/llvm/lib/cmake/llvm
+//No help, variable specified on the command line.
+LLVM_DIR:UNINITIALIZED=/usr/local/opt/llvm/lib/cmake/llvm
 
 //Path to a file.
 LibEdit_INCLUDE_DIRS:PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include
@@ -254,9 +254,6 @@ SLangCompiler_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
 SLangCompiler_SOURCE_DIR:STATIC=/Users/enochkan/slang
-
-//Path to a library.
-Terminfo_LIBRARIES:FILEPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/lib/libcurses.tbd
 
 //Path to a file.
 ZLIB_INCLUDE_DIR:PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include
@@ -441,8 +438,6 @@ FIND_PACKAGE_MESSAGE_DETAILS_FFI:INTERNAL=[/Library/Developer/CommandLineTools/S
 FIND_PACKAGE_MESSAGE_DETAILS_LibEdit:INTERNAL=[/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include][/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/lib/libedit.tbd][v2.11()]
 //Details about finding LibXml2
 FIND_PACKAGE_MESSAGE_DETAILS_LibXml2:INTERNAL=[/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/lib/libxml2.tbd][/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/libxml2][v2.9.13()]
-//Details about finding Terminfo
-FIND_PACKAGE_MESSAGE_DETAILS_Terminfo:INTERNAL=[/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/lib/libcurses.tbd][1][v()]
 //Details about finding ZLIB
 FIND_PACKAGE_MESSAGE_DETAILS_ZLIB:INTERNAL=[/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/lib/libz.tbd][/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include][c ][v1.2.12()]
 //Details about finding zstd
@@ -540,12 +535,6 @@ PC_LIBXML_libxml-2.0_VERSION:INTERNAL=
 PKG_CONFIG_ARGN-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: PKG_CONFIG_EXECUTABLE
 PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: Terminfo_LIBRARIES
-Terminfo_LIBRARIES-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: Terminfo_LINKABLE
-Terminfo_LINKABLE-ADVANCED:INTERNAL=1
-//Test Terminfo_LINKABLE
-Terminfo_LINKABLE:INTERNAL=1
 //ADVANCED property for variable: ZLIB_INCLUDE_DIR
 ZLIB_INCLUDE_DIR-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: ZLIB_LIBRARY_DEBUG

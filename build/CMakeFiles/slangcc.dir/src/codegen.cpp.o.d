@@ -857,6 +857,7 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/ADT/STLExtras.h \
   /usr/local/opt/llvm/include/llvm/ADT/ADL.h \
   /usr/local/opt/llvm/include/llvm/ADT/Hashing.h \
+  /usr/local/opt/llvm/include/llvm/Config/abi-breaking.h \
   /usr/local/opt/llvm/include/llvm/Support/DataTypes.h \
   /usr/local/opt/llvm/include/llvm/Support/ErrorHandling.h \
   /usr/local/opt/llvm/include/llvm/Support/Compiler.h \
@@ -871,7 +872,6 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/ADT/STLFunctionalExtras.h \
   /usr/local/opt/llvm/include/llvm/ADT/iterator.h \
   /usr/local/opt/llvm/include/llvm/ADT/iterator_range.h \
-  /usr/local/opt/llvm/include/llvm/Config/abi-breaking.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/functional \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__functional/binary_negate.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__functional/bind.h \
@@ -923,6 +923,7 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/Support/Casting.h \
   /usr/local/opt/llvm/include/llvm/IR/DataLayout.h \
   /usr/local/opt/llvm/include/llvm/ADT/APInt.h \
+  /usr/local/opt/llvm/include/llvm/Support/float128.h \
   /usr/local/opt/llvm/include/llvm/IR/DerivedTypes.h \
   /usr/local/opt/llvm/include/llvm/IR/Type.h \
   /usr/local/opt/llvm/include/llvm/Support/TypeSize.h \
@@ -946,6 +947,7 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/ADT/ilist_base.h \
   /usr/local/opt/llvm/include/llvm/ADT/ilist_iterator.h \
   /usr/local/opt/llvm/include/llvm/IR/DebugProgramInstruction.h \
+  /usr/local/opt/llvm/include/llvm/IR/DbgVariableFragmentInfo.h \
   /usr/local/opt/llvm/include/llvm/IR/DebugLoc.h \
   /usr/local/opt/llvm/include/llvm/IR/TrackingMDRef.h \
   /usr/local/opt/llvm/include/llvm/IR/Metadata.h \
@@ -964,8 +966,6 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/IR/CallingConv.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalObject.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalValue.h \
-  /usr/local/opt/llvm/include/llvm/Support/MD5.h \
-  /usr/local/opt/llvm/include/llvm/Support/Endian.h \
   /usr/local/opt/llvm/include/llvm/IR/OperandTraits.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalAlias.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalIFunc.h \
@@ -973,20 +973,83 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/IR/ProfileSummary.h \
   /usr/local/opt/llvm/include/llvm/IR/IRBuilder.h \
   /usr/local/opt/llvm/include/llvm/IR/ConstantFolder.h \
+  /usr/local/opt/llvm/include/llvm/IR/ConstantFold.h \
+  /usr/local/opt/llvm/include/llvm/IR/InstrTypes.h \
+  /usr/local/opt/llvm/include/llvm/IR/FMF.h \
   /usr/local/opt/llvm/include/llvm/IR/Constants.h \
   /usr/local/opt/llvm/include/llvm/ADT/APFloat.h \
   /usr/local/opt/llvm/include/llvm/ADT/FloatingPointMode.h \
   /usr/local/opt/llvm/include/llvm/ADT/StringSwitch.h \
+  /usr/local/opt/llvm/include/llvm/IR/ConstantRange.h \
+  /usr/local/opt/llvm/include/llvm/IR/GEPNoWrapFlags.h \
   /usr/local/opt/llvm/include/llvm/IR/Intrinsics.h \
   /usr/local/opt/llvm/include/llvm/IR/IntrinsicEnums.inc \
-  /usr/local/opt/llvm/include/llvm/IR/ConstantFold.h \
-  /usr/local/opt/llvm/include/llvm/IR/InstrTypes.h \
   /usr/local/opt/llvm/include/llvm/IR/IRBuilderFolder.h \
   /usr/local/opt/llvm/include/llvm/IR/Operator.h \
   /usr/local/opt/llvm/include/llvm/ADT/MapVector.h \
-  /usr/local/opt/llvm/include/llvm/IR/FMF.h \
   /usr/local/opt/llvm/include/llvm/IR/FPEnv.h \
   /usr/local/opt/llvm/include/llvm/IR/Instructions.h \
   /usr/local/opt/llvm/include/llvm/IR/CFG.h \
   /usr/local/opt/llvm/include/llvm/ADT/GraphTraits.h \
-  /usr/local/opt/llvm/include/llvm/IR/ValueHandle.h
+  /usr/local/opt/llvm/include/llvm/IR/ValueHandle.h \
+  /usr/local/opt/llvm/include/llvm/IR/LegacyPassManager.h \
+  /usr/local/opt/llvm/include/llvm/Support/FileSystem.h \
+  /usr/local/opt/llvm/include/llvm/ADT/SmallString.h \
+  /usr/local/opt/llvm/include/llvm/Support/Chrono.h \
+  /usr/local/opt/llvm/include/llvm/Support/FormatProviders.h \
+  /usr/local/opt/llvm/include/llvm/Support/FormatVariadicDetails.h \
+  /usr/local/opt/llvm/include/llvm/Support/NativeFormatting.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/chrono \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/calendar.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/convert_to_tm.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/concepts.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/hh_mm_ss.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/day.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/file_clock.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/month.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/month_weekday.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/weekday.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/monthday.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/statically_widen.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/year.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/year_month.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/year_month_day.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/year_month_weekday.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__chrono/literals.h \
+  /usr/local/opt/llvm/include/llvm/Support/Error.h \
+  /usr/local/opt/llvm/include/llvm-c/Error.h \
+  /usr/local/opt/llvm/include/llvm/Support/Debug.h \
+  /usr/local/opt/llvm/include/llvm/Support/ErrorOr.h \
+  /usr/local/opt/llvm/include/llvm/Support/Format.h \
+  /usr/local/opt/llvm/include/llvm/Support/FileSystem/UniqueID.h \
+  /usr/local/opt/llvm/include/llvm/Support/MD5.h \
+  /usr/local/opt/llvm/include/llvm/Support/Endian.h \
+  /usr/local/opt/llvm/include/llvm/TargetParser/Host.h \
+  /usr/local/opt/llvm/include/llvm/Target/TargetMachine.h \
+  /usr/local/opt/llvm/include/llvm/IR/PassManager.h \
+  /usr/local/opt/llvm/include/llvm/ADT/TinyPtrVector.h \
+  /usr/local/opt/llvm/include/llvm/IR/Analysis.h \
+  /usr/local/opt/llvm/include/llvm/IR/PassManagerInternal.h \
+  /usr/local/opt/llvm/include/llvm/Support/TypeName.h \
+  /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/list \
+  /usr/local/opt/llvm/include/llvm/Support/Allocator.h \
+  /usr/local/opt/llvm/include/llvm/Support/PGOOptions.h \
+  /usr/local/opt/llvm/include/llvm/ADT/IntrusiveRefCntPtr.h \
+  /usr/local/opt/llvm/include/llvm/Target/CGPassBuilderOption.h \
+  /usr/local/opt/llvm/include/llvm/Target/TargetOptions.h \
+  /usr/local/opt/llvm/include/llvm/MC/MCTargetOptions.h \
+  /usr/local/opt/llvm/include/llvm/Support/Compression.h \
+  /usr/local/opt/llvm/include/llvm/TargetParser/Triple.h \
+  /usr/local/opt/llvm/include/llvm/Support/VersionTuple.h \
+  /usr/local/opt/llvm/include/llvm/MC/TargetRegistry.h \
+  /usr/local/opt/llvm/include/llvm-c/DisassemblerTypes.h \
+  /usr/local/opt/llvm/include/llvm/MC/MCObjectFileInfo.h \
+  /usr/local/opt/llvm/include/llvm/BinaryFormat/Swift.h \
+  /usr/local/opt/llvm/include/llvm/BinaryFormat/Swift.def \
+  /usr/local/opt/llvm/include/llvm/MC/MCSection.h \
+  /usr/local/opt/llvm/include/llvm/MC/MCFragment.h \
+  /usr/local/opt/llvm/include/llvm/MC/MCFixup.h \
+  /usr/local/opt/llvm/include/llvm/Support/SMLoc.h \
+  /usr/local/opt/llvm/include/llvm/MC/MCInst.h \
+  /usr/local/opt/llvm/include/llvm/MC/SectionKind.h \
+  /usr/local/opt/llvm/include/llvm/Support/FormattedStream.h

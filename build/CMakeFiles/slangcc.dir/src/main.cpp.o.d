@@ -882,6 +882,7 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/ADT/STLExtras.h \
   /usr/local/opt/llvm/include/llvm/ADT/ADL.h \
   /usr/local/opt/llvm/include/llvm/ADT/Hashing.h \
+  /usr/local/opt/llvm/include/llvm/Config/abi-breaking.h \
   /usr/local/opt/llvm/include/llvm/Support/DataTypes.h \
   /usr/local/opt/llvm/include/llvm/Support/ErrorHandling.h \
   /usr/local/opt/llvm/include/llvm/Support/Compiler.h \
@@ -896,7 +897,6 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/ADT/STLFunctionalExtras.h \
   /usr/local/opt/llvm/include/llvm/ADT/iterator.h \
   /usr/local/opt/llvm/include/llvm/ADT/iterator_range.h \
-  /usr/local/opt/llvm/include/llvm/Config/abi-breaking.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/functional \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__functional/binary_negate.h \
   /Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include/c++/v1/__functional/bind.h \
@@ -948,6 +948,7 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/Support/Casting.h \
   /usr/local/opt/llvm/include/llvm/IR/DataLayout.h \
   /usr/local/opt/llvm/include/llvm/ADT/APInt.h \
+  /usr/local/opt/llvm/include/llvm/Support/float128.h \
   /usr/local/opt/llvm/include/llvm/IR/DerivedTypes.h \
   /usr/local/opt/llvm/include/llvm/IR/Type.h \
   /usr/local/opt/llvm/include/llvm/Support/TypeSize.h \
@@ -971,6 +972,7 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/ADT/ilist_base.h \
   /usr/local/opt/llvm/include/llvm/ADT/ilist_iterator.h \
   /usr/local/opt/llvm/include/llvm/IR/DebugProgramInstruction.h \
+  /usr/local/opt/llvm/include/llvm/IR/DbgVariableFragmentInfo.h \
   /usr/local/opt/llvm/include/llvm/IR/DebugLoc.h \
   /usr/local/opt/llvm/include/llvm/IR/TrackingMDRef.h \
   /usr/local/opt/llvm/include/llvm/IR/Metadata.h \
@@ -989,8 +991,6 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/IR/CallingConv.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalObject.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalValue.h \
-  /usr/local/opt/llvm/include/llvm/Support/MD5.h \
-  /usr/local/opt/llvm/include/llvm/Support/Endian.h \
   /usr/local/opt/llvm/include/llvm/IR/OperandTraits.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalAlias.h \
   /usr/local/opt/llvm/include/llvm/IR/GlobalIFunc.h \
@@ -998,18 +998,20 @@ CMakeFiles/slangcc.dir/src/main.cpp.o: /Users/enochkan/slang/src/main.cpp \
   /usr/local/opt/llvm/include/llvm/IR/ProfileSummary.h \
   /usr/local/opt/llvm/include/llvm/IR/IRBuilder.h \
   /usr/local/opt/llvm/include/llvm/IR/ConstantFolder.h \
+  /usr/local/opt/llvm/include/llvm/IR/ConstantFold.h \
+  /usr/local/opt/llvm/include/llvm/IR/InstrTypes.h \
+  /usr/local/opt/llvm/include/llvm/IR/FMF.h \
   /usr/local/opt/llvm/include/llvm/IR/Constants.h \
   /usr/local/opt/llvm/include/llvm/ADT/APFloat.h \
   /usr/local/opt/llvm/include/llvm/ADT/FloatingPointMode.h \
   /usr/local/opt/llvm/include/llvm/ADT/StringSwitch.h \
+  /usr/local/opt/llvm/include/llvm/IR/ConstantRange.h \
+  /usr/local/opt/llvm/include/llvm/IR/GEPNoWrapFlags.h \
   /usr/local/opt/llvm/include/llvm/IR/Intrinsics.h \
   /usr/local/opt/llvm/include/llvm/IR/IntrinsicEnums.inc \
-  /usr/local/opt/llvm/include/llvm/IR/ConstantFold.h \
-  /usr/local/opt/llvm/include/llvm/IR/InstrTypes.h \
   /usr/local/opt/llvm/include/llvm/IR/IRBuilderFolder.h \
   /usr/local/opt/llvm/include/llvm/IR/Operator.h \
   /usr/local/opt/llvm/include/llvm/ADT/MapVector.h \
-  /usr/local/opt/llvm/include/llvm/IR/FMF.h \
   /usr/local/opt/llvm/include/llvm/IR/FPEnv.h \
   /usr/local/opt/llvm/include/llvm/IR/Instructions.h \
   /usr/local/opt/llvm/include/llvm/IR/CFG.h \
