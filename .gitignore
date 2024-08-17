@@ -1,4 +1,32 @@
-# macOS system files
+# Build directories
+/build/
+/cmake-build-debug/
+
+# CMake generated files
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+
+# Object files and executables
+*.o
+*.obj
+*.exe
+*.out
+*.a
+*.so
+
+# Generated LLVM files
+*.ll
+*.bc
+output.o
+output.ll
+
+# OS and editor specific files
 .DS_Store
-.vscode/*
-# Ignore other files and directories
+*.swp
+.vscode/
+
+# Log files and temporary files
+*.log
+*.tmp

@@ -15,7 +15,8 @@ private:
     llvm::Module* module;
     llvm::IRBuilder<> builder;
 
-    void generateNode(ASTNode* node);
+    // Update the function declaration to match the return type in the .cpp file
+    llvm::Value* generateNode(ASTNode* node);
 };
 
 #endif

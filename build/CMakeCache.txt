@@ -67,7 +67,7 @@ CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
 
 //Flags used by the linker during all build types.
-CMAKE_EXE_LINKER_FLAGS:STRING=
+CMAKE_EXE_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
 
 //Flags used by the linker during DEBUG builds.
 CMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=
@@ -101,7 +101,7 @@ CMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/make
 
 //Flags used by the linker during the creation of modules during
 // all build types.
-CMAKE_MODULE_LINKER_FLAGS:STRING=
+CMAKE_MODULE_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
 
 //Flags used by the linker during the creation of modules during
 // DEBUG builds.
@@ -156,7 +156,7 @@ CMAKE_READELF:FILEPATH=CMAKE_READELF-NOTFOUND
 
 //Flags used by the linker during the creation of shared libraries
 // during all build types.
-CMAKE_SHARED_LINKER_FLAGS:STRING=
+CMAKE_SHARED_LINKER_FLAGS:STRING=-L/usr/local/opt/llvm/lib
 
 //Flags used by the linker during the creation of shared libraries
 // during DEBUG builds.
@@ -231,8 +231,8 @@ LIBXML2_LIBRARY:FILEPATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk
 //Path to a program.
 LIBXML2_XMLLINT_EXECUTABLE:FILEPATH=/usr/bin/xmllint
 
-//No help, variable specified on the command line.
-LLVM_DIR:UNINITIALIZED=/usr/local/opt/llvm/lib/cmake/llvm
+//The directory containing a CMake configuration file for LLVM.
+LLVM_DIR:PATH=/usr/local/opt/llvm/lib/cmake/llvm
 
 //Path to a file.
 LibEdit_INCLUDE_DIRS:PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX14.4.sdk/usr/include

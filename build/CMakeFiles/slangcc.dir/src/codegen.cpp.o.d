@@ -1052,4 +1052,10 @@ CMakeFiles/slangcc.dir/src/codegen.cpp.o: \
   /usr/local/opt/llvm/include/llvm/Support/SMLoc.h \
   /usr/local/opt/llvm/include/llvm/MC/MCInst.h \
   /usr/local/opt/llvm/include/llvm/MC/SectionKind.h \
-  /usr/local/opt/llvm/include/llvm/Support/FormattedStream.h
+  /usr/local/opt/llvm/include/llvm/Support/FormattedStream.h \
+  /usr/local/opt/llvm/include/llvm/Support/TargetSelect.h \
+  /usr/local/opt/llvm/include/llvm/Config/Targets.def \
+  /usr/local/opt/llvm/include/llvm/Config/AsmPrinters.def \
+  /usr/local/opt/llvm/include/llvm/Config/AsmParsers.def \
+  /usr/local/opt/llvm/include/llvm/Config/Disassemblers.def \
+  /usr/local/opt/llvm/include/llvm/Config/TargetMCAs.def

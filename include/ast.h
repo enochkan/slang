@@ -4,7 +4,12 @@
 #include <string>
 #include <vector>
 
-enum ASTNodeType { Literal, BinaryOp };
+enum class ASTNodeType {
+    Literal,
+    BinaryOp,
+    Variable,  // Ensure this exists
+    // Add other node types as needed
+};
 
 struct ASTNode {
     ASTNodeType type;
