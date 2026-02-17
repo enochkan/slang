@@ -7,6 +7,8 @@
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/TargetSelect.h>
+#include <llvm/Passes/PassBuilder.h>
+#include <llvm/TargetParser/SubtargetFeature.h>
 #include <optional>
 
 CodeGenerator::CodeGenerator() : builder(context) {
@@ -84,8 +86,66 @@ void CodeGenerator::generate(Program& program, const std::string& outputBaseName
         generateFnDecl(*fn);
     }
 
+    // Set up the native target machine
+    llvm::Triple targetTriple(llvm::sys::getProcessTriple());
+    module->setTargetTriple(targetTriple);
+
+    std::string error;
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+    if (!target) {
+        llvm::errs() << "Target lookup failed: " << error << "\n";
+        return;
+    }
+
+    // Use the host CPU name and all its features (AVX2, AVX512, NEON, etc.)
+    // rather than "generic" - this enables vectorization on the actual hardware
+    std::string cpuName = std::string(llvm::sys::getHostCPUName());
+    // LLVM 21+: getHostCPUFeatures() returns a value instead of taking a reference
+    auto hostFeatures = llvm::sys::getHostCPUFeatures();
+    llvm::SubtargetFeatures subtargetFeatures;
+    for (auto& kv : hostFeatures) {
+        subtargetFeatures.AddFeature(kv.first(), kv.second);
+    }
+
+    llvm::TargetOptions targetOpts;
+    // LLVM 21+: createTargetMachine returns a raw pointer
+    std::unique_ptr<llvm::TargetMachine> TM(target->createTargetMachine(
+        targetTriple,
+        cpuName,
+        subtargetFeatures.getString(),
+        targetOpts,
+        std::nullopt,                       // Reloc model (default)
+        std::nullopt,                       // Code model (default)
+        llvm::CodeGenOptLevel::Aggressive   // -O3 equivalent
+    ));
+    module->setDataLayout(TM->createDataLayout());
+
+    // Run O3 + loop vectorization + SLP vectorization passes
+    runOptimizationPasses(TM.get());
+
     emitIR(outputBaseName + ".ll");
-    emitObjectFile(outputBaseName + ".o");
+    emitObjectFile(outputBaseName + ".o", TM.get());
+}
+
+void CodeGenerator::runOptimizationPasses(llvm::TargetMachine* TM) {
+    llvm::PassBuilder PB(TM);
+
+    llvm::LoopAnalysisManager LAM;
+    llvm::FunctionAnalysisManager FAM;
+    llvm::CGSCCAnalysisManager CGAM;
+    llvm::ModuleAnalysisManager MAM;
+
+    // Register all standard analyses with their managers
+    PB.registerModuleAnalyses(MAM);
+    PB.registerCGSCCAnalyses(CGAM);
+    PB.registerFunctionAnalyses(FAM);
+    PB.registerLoopAnalyses(LAM);
+    PB.crossRegisterProxies(LAM, FAM, CGAM, MAM);
+
+    // O3 pipeline: includes inlining, loop vectorization, SLP vectorization,
+    // dead code elimination, and all standard scalar optimizations
+    llvm::ModulePassManager MPM = PB.buildPerModuleDefaultPipeline(llvm::OptimizationLevel::O3);
+    MPM.run(*module, MAM);
 }
 
 void CodeGenerator::emitIR(const std::string& filename) {
@@ -99,21 +159,7 @@ void CodeGenerator::emitIR(const std::string& filename) {
     dest.flush();
 }
 
-void CodeGenerator::emitObjectFile(const std::string& filename) {
-    llvm::Triple targetTriple(llvm::sys::getProcessTriple());
-    module->setTargetTriple(targetTriple);
-
-    std::string error;
-    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
-    if (!target) {
-        llvm::errs() << error << "\n";
-        return;
-    }
-
-    llvm::TargetOptions opt;
-    auto targetMachine = target->createTargetMachine(targetTriple, "generic", "", opt, std::nullopt);
-    module->setDataLayout(targetMachine->createDataLayout());
-
+void CodeGenerator::emitObjectFile(const std::string& filename, llvm::TargetMachine* TM) {
     std::error_code EC;
     llvm::raw_fd_ostream dest(filename, EC, llvm::sys::fs::OF_None);
     if (EC) {
@@ -121,9 +167,10 @@ void CodeGenerator::emitObjectFile(const std::string& filename) {
         return;
     }
 
+    // Legacy pass manager is still required for addPassesToEmitFile
     llvm::legacy::PassManager pass;
     auto fileType = llvm::CodeGenFileType::ObjectFile;
-    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+    if (TM->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
         llvm::errs() << "Target machine can't emit object file\n";
         return;
     }

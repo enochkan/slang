@@ -33,3 +33,6 @@ compile_commands.json
 # Log files and temporary files
 *.log
 *.tmp
+
+# Claude Code memory (session-local AI context)
+memory/

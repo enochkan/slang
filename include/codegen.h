@@ -8,6 +8,8 @@
 #include <memory>
 #include <string>
 
+namespace llvm { class TargetMachine; }
+
 struct VarInfo {
     llvm::AllocaInst* alloca;
     SlangType type;
@@ -30,7 +32,8 @@ private:
     // Helpers
     void declarePrintf();
     void emitIR(const std::string& filename);
-    void emitObjectFile(const std::string& filename);
+    void emitObjectFile(const std::string& filename, llvm::TargetMachine* TM);
+    void runOptimizationPasses(llvm::TargetMachine* TM);
     llvm::Type* getLLVMType(SlangType type);
     llvm::AllocaInst* createEntryBlockAlloca(llvm::Function* fn, const std::string& name, llvm::Type* type);
     SlangType inferExprType(ExprNode* expr);
