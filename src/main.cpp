@@ -16,12 +16,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    Lexer lexer(sourceFile);
-    Parser parser(lexer);
-    ASTNode* ast = parser.parse();
+    try {
+        Lexer lexer(sourceFile);
+        Parser parser(lexer);
+        auto program = parser.parseProgram();
 
-    CodeGenerator codegen;
-    codegen.generate(ast);
+        CodeGenerator codegen;
+        codegen.generate(*program, "output");
+    } catch (const ParseError& e) {
+        std::cerr << "Parse error: " << e.what() << std::endl;
+        return 1;
+    }
 
     return 0;
 }

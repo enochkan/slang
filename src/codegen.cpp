@@ -1,113 +1,499 @@
 #include "codegen.h"
 #include <llvm/IR/LegacyPassManager.h>
+#include <llvm/IR/Verifier.h>
 #include <llvm/Support/FileSystem.h>
 #include <llvm/TargetParser/Host.h>
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Target/TargetMachine.h>
 #include <llvm/MC/TargetRegistry.h>
-#include <llvm/Support/TargetSelect.h>  // For target initialization
-#include <optional>  // For std::optional
+#include <llvm/Support/TargetSelect.h>
+#include <optional>
 
 CodeGenerator::CodeGenerator() : builder(context) {
-    // Initialize all targets
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllAsmParsers();
     llvm::InitializeAllAsmPrinters();
 
-    module = new llvm::Module("S-Lang Module", context);
+    module = std::make_unique<llvm::Module>("S-Lang Module", context);
 }
 
+void CodeGenerator::declarePrintf() {
+    auto printfType = llvm::FunctionType::get(
+        llvm::Type::getInt32Ty(context),
+        {llvm::PointerType::getUnqual(context)},
+        true // variadic
+    );
+    printfFunc = module->getOrInsertFunction("printf", printfType);
+}
 
-void CodeGenerator::generate(ASTNode* root) {
-    llvm::Value* result = generateNode(root);
+llvm::Type* CodeGenerator::getLLVMType(SlangType type) {
+    switch (type) {
+        case SlangType::I32:  return llvm::Type::getInt32Ty(context);
+        case SlangType::F64:  return llvm::Type::getDoubleTy(context);
+        case SlangType::Bool: return llvm::Type::getInt1Ty(context);
+        case SlangType::Void: return llvm::Type::getVoidTy(context);
+    }
+    return llvm::Type::getVoidTy(context);
+}
 
-    // Output the LLVM IR to a file
-    std::error_code EC;
-    llvm::raw_fd_ostream dest("output.ll", EC, llvm::sys::fs::OF_None);
-    if (EC) {
-        llvm::errs() << "Could not open file: " << EC.message();
-        return;
+llvm::AllocaInst* CodeGenerator::createEntryBlockAlloca(llvm::Function* fn, const std::string& name, llvm::Type* type) {
+    llvm::IRBuilder<> tmpBuilder(&fn->getEntryBlock(), fn->getEntryBlock().begin());
+    return tmpBuilder.CreateAlloca(type, nullptr, name);
+}
+
+SlangType CodeGenerator::inferExprType(ExprNode* expr) {
+    if (dynamic_cast<IntLiteralExpr*>(expr)) return SlangType::I32;
+    if (dynamic_cast<FloatLiteralExpr*>(expr)) return SlangType::F64;
+    if (dynamic_cast<BoolLiteralExpr*>(expr)) return SlangType::Bool;
+    if (auto* var = dynamic_cast<VariableExpr*>(expr)) {
+        auto it = namedValues.find(var->name);
+        if (it != namedValues.end()) return it->second.type;
+        return SlangType::I32;
+    }
+    if (auto* bin = dynamic_cast<BinaryExpr*>(expr)) {
+        if (bin->op == "==" || bin->op == "!=" || bin->op == "<" || bin->op == ">" ||
+            bin->op == "<=" || bin->op == ">=" || bin->op == "&&" || bin->op == "||") {
+            return SlangType::Bool;
+        }
+        return inferExprType(bin->left.get());
+    }
+    if (auto* unary = dynamic_cast<UnaryExpr*>(expr)) {
+        if (unary->op == "!") return SlangType::Bool;
+        return inferExprType(unary->operand.get());
+    }
+    if (auto* call = dynamic_cast<CallExpr*>(expr)) {
+        auto* fn = module->getFunction(call->callee);
+        if (fn) {
+            if (fn->getReturnType()->isIntegerTy(32)) return SlangType::I32;
+            if (fn->getReturnType()->isDoubleTy()) return SlangType::F64;
+            if (fn->getReturnType()->isIntegerTy(1)) return SlangType::Bool;
+        }
+        return SlangType::I32;
+    }
+    return SlangType::I32;
+}
+
+// --- Main entry ---
+
+void CodeGenerator::generate(Program& program, const std::string& outputBaseName) {
+    declarePrintf();
+
+    for (auto& fn : program.functions) {
+        generateFnDecl(*fn);
     }
 
+    emitIR(outputBaseName + ".ll");
+    emitObjectFile(outputBaseName + ".o");
+}
+
+void CodeGenerator::emitIR(const std::string& filename) {
+    std::error_code EC;
+    llvm::raw_fd_ostream dest(filename, EC, llvm::sys::fs::OF_None);
+    if (EC) {
+        llvm::errs() << "Could not open file: " << EC.message() << "\n";
+        return;
+    }
     module->print(dest, nullptr);
     dest.flush();
-
-    // Generate object file
-    llvm::legacy::PassManager passObj;
-    auto TargetTriple = llvm::sys::getProcessTriple();
-    module->setTargetTriple(TargetTriple);
-
-    std::string Error;
-    const llvm::Target* Target = llvm::TargetRegistry::lookupTarget(TargetTriple, Error);
-
-    if (!Target) {
-        llvm::errs() << Error;
-        return;
-    }
-
-    auto CPU = "generic";
-    auto Features = "";
-
-    llvm::TargetOptions opt;
-    auto TheTargetMachine = Target->createTargetMachine(TargetTriple, CPU, Features, opt, std::nullopt);
-
-    module->setDataLayout(TheTargetMachine->createDataLayout());
-
-    std::error_code EC2;
-    llvm::raw_fd_ostream destObj("output.o", EC2, llvm::sys::fs::OF_None);
-
-    if (EC2) {
-        llvm::errs() << "Could not open file: " << EC2.message();
-        return;
-    }
-
-    llvm::CodeGenFileType FileType = static_cast<llvm::CodeGenFileType>(0);  // Assuming 0 corresponds to object file generation
-    if (TheTargetMachine->addPassesToEmitFile(passObj, destObj, nullptr, FileType)) {
-        llvm::errs() << "TheTargetMachine can't emit a file of this type";
-        return;
-    }
-
-    passObj.run(*module);
-    destObj.flush();
-
-    llvm::outs() << "Generated object file: output.o\n";
 }
 
-llvm::Value* CodeGenerator::generateNode(ASTNode* node) {
-    switch (node->type) {
-        case ASTNodeType::Literal: {
-            // Assuming the literal is an integer
-            int value = std::stoi(node->value);
-            return llvm::ConstantInt::get(context, llvm::APInt(32, value));
-        }
-        case ASTNodeType::BinaryOp: {
-            llvm::Value* left = generateNode(node->children[0]);
-            llvm::Value* right = generateNode(node->children[1]);
+void CodeGenerator::emitObjectFile(const std::string& filename) {
+    llvm::Triple targetTriple(llvm::sys::getProcessTriple());
+    module->setTargetTriple(targetTriple);
 
-            if (node->value == "+") {
-                return builder.CreateAdd(left, right, "addtmp");
-            } else if (node->value == "-") {
-                return builder.CreateSub(left, right, "subtmp");
-            } else if (node->value == "*") {
-                return builder.CreateMul(left, right, "multmp");
-            } else if (node->value == "/") {
-                return builder.CreateSDiv(left, right, "divtmp");
-            }
-            break;
-        }
-        case ASTNodeType::Variable: {
-            llvm::Value* var = module->getGlobalVariable(node->value);
-            if (var) {
-                // Assuming the variable is of type int32
-                return builder.CreateLoad(builder.getInt32Ty(), var, node->value.c_str());
-            }
-            break;
-        }
-        default:
-            llvm::errs() << "Unknown AST node type\n";
-            return nullptr;
+    std::string error;
+    const llvm::Target* target = llvm::TargetRegistry::lookupTarget(targetTriple, error);
+    if (!target) {
+        llvm::errs() << error << "\n";
+        return;
     }
+
+    llvm::TargetOptions opt;
+    auto targetMachine = target->createTargetMachine(targetTriple, "generic", "", opt, std::nullopt);
+    module->setDataLayout(targetMachine->createDataLayout());
+
+    std::error_code EC;
+    llvm::raw_fd_ostream dest(filename, EC, llvm::sys::fs::OF_None);
+    if (EC) {
+        llvm::errs() << "Could not open file: " << EC.message() << "\n";
+        return;
+    }
+
+    llvm::legacy::PassManager pass;
+    auto fileType = llvm::CodeGenFileType::ObjectFile;
+    if (targetMachine->addPassesToEmitFile(pass, dest, nullptr, fileType)) {
+        llvm::errs() << "Target machine can't emit object file\n";
+        return;
+    }
+
+    pass.run(*module);
+    dest.flush();
+
+    llvm::outs() << "Generated: " << filename << "\n";
+}
+
+// --- Function Declaration ---
+
+void CodeGenerator::generateFnDecl(FnDecl& fn) {
+    // Build parameter types
+    std::vector<llvm::Type*> paramTypes;
+    for (auto& param : fn.params) {
+        paramTypes.push_back(getLLVMType(param.type));
+    }
+
+    auto* funcType = llvm::FunctionType::get(getLLVMType(fn.returnType), paramTypes, false);
+    auto* func = llvm::Function::Create(funcType, llvm::Function::ExternalLinkage, fn.name, module.get());
+
+    // Name the parameters
+    unsigned idx = 0;
+    for (auto& arg : func->args()) {
+        arg.setName(fn.params[idx].name);
+        idx++;
+    }
+
+    // Create entry block
+    auto* entryBlock = llvm::BasicBlock::Create(context, "entry", func);
+    builder.SetInsertPoint(entryBlock);
+
+    // Clear symbol table for this function
+    namedValues.clear();
+
+    // Create allocas for parameters
+    idx = 0;
+    for (auto& arg : func->args()) {
+        auto* alloca = createEntryBlockAlloca(func, fn.params[idx].name, getLLVMType(fn.params[idx].type));
+        builder.CreateStore(&arg, alloca);
+        namedValues[fn.params[idx].name] = {alloca, fn.params[idx].type, false};
+        idx++;
+    }
+
+    // Generate body
+    for (auto& stmt : fn.body->statements) {
+        generateStmt(stmt.get());
+    }
+
+    // If the function returns void and there's no terminator, add ret void
+    if (fn.returnType == SlangType::Void) {
+        auto* currentBlock = builder.GetInsertBlock();
+        if (!currentBlock->getTerminator()) {
+            builder.CreateRetVoid();
+        }
+    }
+
+    llvm::verifyFunction(*func);
+}
+
+// --- Statements ---
+
+void CodeGenerator::generateStmt(StmtNode* stmt) {
+    // Skip if current block already has a terminator
+    if (builder.GetInsertBlock()->getTerminator()) return;
+
+    if (auto* s = dynamic_cast<LetStmt*>(stmt))    return generateLetStmt(s);
+    if (auto* s = dynamic_cast<AssignStmt*>(stmt))  return generateAssignStmt(s);
+    if (auto* s = dynamic_cast<ReturnStmt*>(stmt))  return generateReturnStmt(s);
+    if (auto* s = dynamic_cast<ExprStmt*>(stmt))    return generateExprStmt(s);
+    if (auto* s = dynamic_cast<PrintStmt*>(stmt))   return generatePrintStmt(s);
+    if (auto* s = dynamic_cast<BlockStmt*>(stmt))   return generateBlockStmt(s);
+    if (auto* s = dynamic_cast<IfStmt*>(stmt))      return generateIfStmt(s);
+    if (auto* s = dynamic_cast<WhileStmt*>(stmt))   return generateWhileStmt(s);
+}
+
+void CodeGenerator::generateLetStmt(LetStmt* stmt) {
+    auto* func = builder.GetInsertBlock()->getParent();
+    auto* type = getLLVMType(stmt->type);
+    auto* alloca = createEntryBlockAlloca(func, stmt->name, type);
+
+    llvm::Value* initVal = generateExpr(stmt->initializer.get());
+
+    // Type conversion if needed
+    if (stmt->type == SlangType::F64 && initVal->getType()->isIntegerTy(32)) {
+        initVal = builder.CreateSIToFP(initVal, llvm::Type::getDoubleTy(context), "conv");
+    } else if (stmt->type == SlangType::I32 && initVal->getType()->isDoubleTy()) {
+        initVal = builder.CreateFPToSI(initVal, llvm::Type::getInt32Ty(context), "conv");
+    }
+
+    builder.CreateStore(initVal, alloca);
+    namedValues[stmt->name] = {alloca, stmt->type, stmt->isMutable};
+}
+
+void CodeGenerator::generateAssignStmt(AssignStmt* stmt) {
+    auto it = namedValues.find(stmt->name);
+    if (it == namedValues.end()) {
+        llvm::errs() << "Unknown variable: " << stmt->name << "\n";
+        return;
+    }
+    if (!it->second.isMutable) {
+        llvm::errs() << "Cannot assign to immutable variable: " << stmt->name << "\n";
+        return;
+    }
+
+    llvm::Value* val = generateExpr(stmt->value.get());
+    builder.CreateStore(val, it->second.alloca);
+}
+
+void CodeGenerator::generateReturnStmt(ReturnStmt* stmt) {
+    llvm::Value* val = generateExpr(stmt->value.get());
+    builder.CreateRet(val);
+}
+
+void CodeGenerator::generateExprStmt(ExprStmt* stmt) {
+    generateExpr(stmt->expr.get());
+}
+
+void CodeGenerator::generatePrintStmt(PrintStmt* stmt) {
+    llvm::Value* val = generateExpr(stmt->expr.get());
+    SlangType exprType = inferExprType(stmt->expr.get());
+
+    llvm::Value* formatStr;
+    std::vector<llvm::Value*> args;
+
+    if (exprType == SlangType::F64 || val->getType()->isDoubleTy()) {
+        formatStr = builder.CreateGlobalString("%f\n", "fmt_f64");
+        args = {formatStr, val};
+    } else if (exprType == SlangType::Bool && val->getType()->isIntegerTy(1)) {
+        // Extend bool to i32 for printf
+        val = builder.CreateZExt(val, llvm::Type::getInt32Ty(context), "boolext");
+        formatStr = builder.CreateGlobalString("%d\n", "fmt_bool");
+        args = {formatStr, val};
+    } else {
+        formatStr = builder.CreateGlobalString("%d\n", "fmt_i32");
+        args = {formatStr, val};
+    }
+
+    builder.CreateCall(printfFunc, args);
+}
+
+void CodeGenerator::generateBlockStmt(BlockStmt* stmt) {
+    for (auto& s : stmt->statements) {
+        generateStmt(s.get());
+    }
+}
+
+void CodeGenerator::generateIfStmt(IfStmt* stmt) {
+    llvm::Value* condVal = generateExpr(stmt->condition.get());
+
+    // Convert to i1 if needed
+    if (condVal->getType()->isIntegerTy(32)) {
+        condVal = builder.CreateICmpNE(condVal, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "ifcond");
+    }
+
+    auto* func = builder.GetInsertBlock()->getParent();
+    auto* thenBB = llvm::BasicBlock::Create(context, "then", func);
+    auto* mergeBB = llvm::BasicBlock::Create(context, "ifcont");
+    llvm::BasicBlock* elseBB = nullptr;
+
+    if (stmt->elseBlock) {
+        elseBB = llvm::BasicBlock::Create(context, "else");
+        builder.CreateCondBr(condVal, thenBB, elseBB);
+    } else {
+        builder.CreateCondBr(condVal, thenBB, mergeBB);
+    }
+
+    // Then block
+    builder.SetInsertPoint(thenBB);
+    generateBlockStmt(stmt->thenBlock.get());
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        builder.CreateBr(mergeBB);
+    }
+
+    // Else block
+    if (elseBB) {
+        func->insert(func->end(), elseBB);
+        builder.SetInsertPoint(elseBB);
+        generateBlockStmt(stmt->elseBlock.get());
+        if (!builder.GetInsertBlock()->getTerminator()) {
+            builder.CreateBr(mergeBB);
+        }
+    }
+
+    // Merge block
+    func->insert(func->end(), mergeBB);
+    builder.SetInsertPoint(mergeBB);
+}
+
+void CodeGenerator::generateWhileStmt(WhileStmt* stmt) {
+    auto* func = builder.GetInsertBlock()->getParent();
+    auto* condBB = llvm::BasicBlock::Create(context, "whilecond", func);
+    auto* bodyBB = llvm::BasicBlock::Create(context, "whilebody");
+    auto* afterBB = llvm::BasicBlock::Create(context, "whileafter");
+
+    builder.CreateBr(condBB);
+
+    // Condition block
+    builder.SetInsertPoint(condBB);
+    llvm::Value* condVal = generateExpr(stmt->condition.get());
+    if (condVal->getType()->isIntegerTy(32)) {
+        condVal = builder.CreateICmpNE(condVal, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "whilecond");
+    }
+    builder.CreateCondBr(condVal, bodyBB, afterBB);
+
+    // Body block
+    func->insert(func->end(), bodyBB);
+    builder.SetInsertPoint(bodyBB);
+    generateBlockStmt(stmt->body.get());
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        builder.CreateBr(condBB);
+    }
+
+    // After block
+    func->insert(func->end(), afterBB);
+    builder.SetInsertPoint(afterBB);
+}
+
+// --- Expressions ---
+
+llvm::Value* CodeGenerator::generateExpr(ExprNode* expr) {
+    if (auto* e = dynamic_cast<IntLiteralExpr*>(expr))   return generateIntLiteral(e);
+    if (auto* e = dynamic_cast<FloatLiteralExpr*>(expr)) return generateFloatLiteral(e);
+    if (auto* e = dynamic_cast<BoolLiteralExpr*>(expr))  return generateBoolLiteral(e);
+    if (auto* e = dynamic_cast<VariableExpr*>(expr))     return generateVariable(e);
+    if (auto* e = dynamic_cast<BinaryExpr*>(expr))       return generateBinaryExpr(e);
+    if (auto* e = dynamic_cast<UnaryExpr*>(expr))        return generateUnaryExpr(e);
+    if (auto* e = dynamic_cast<CallExpr*>(expr))         return generateCallExpr(e);
+
+    llvm::errs() << "Unknown expression type\n";
     return nullptr;
+}
+
+llvm::Value* CodeGenerator::generateIntLiteral(IntLiteralExpr* expr) {
+    return llvm::ConstantInt::get(context, llvm::APInt(32, expr->value, true));
+}
+
+llvm::Value* CodeGenerator::generateFloatLiteral(FloatLiteralExpr* expr) {
+    return llvm::ConstantFP::get(context, llvm::APFloat(expr->value));
+}
+
+llvm::Value* CodeGenerator::generateBoolLiteral(BoolLiteralExpr* expr) {
+    return llvm::ConstantInt::get(context, llvm::APInt(1, expr->value ? 1 : 0));
+}
+
+llvm::Value* CodeGenerator::generateVariable(VariableExpr* expr) {
+    auto it = namedValues.find(expr->name);
+    if (it == namedValues.end()) {
+        llvm::errs() << "Unknown variable: " << expr->name << "\n";
+        return nullptr;
+    }
+    return builder.CreateLoad(getLLVMType(it->second.type), it->second.alloca, expr->name);
+}
+
+llvm::Value* CodeGenerator::generateBinaryExpr(BinaryExpr* expr) {
+    llvm::Value* left = generateExpr(expr->left.get());
+    llvm::Value* right = generateExpr(expr->right.get());
+
+    if (!left || !right) return nullptr;
+
+    // Logical operators (short-circuit not implemented for simplicity)
+    if (expr->op == "&&") {
+        // Both operands to i1
+        if (left->getType()->isIntegerTy(32))
+            left = builder.CreateICmpNE(left, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "tobool");
+        if (right->getType()->isIntegerTy(32))
+            right = builder.CreateICmpNE(right, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "tobool");
+        return builder.CreateAnd(left, right, "andtmp");
+    }
+    if (expr->op == "||") {
+        if (left->getType()->isIntegerTy(32))
+            left = builder.CreateICmpNE(left, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "tobool");
+        if (right->getType()->isIntegerTy(32))
+            right = builder.CreateICmpNE(right, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "tobool");
+        return builder.CreateOr(left, right, "ortmp");
+    }
+
+    bool isFloat = left->getType()->isDoubleTy() || right->getType()->isDoubleTy();
+
+    // Promote to float if mixed
+    if (isFloat) {
+        if (left->getType()->isIntegerTy(32))
+            left = builder.CreateSIToFP(left, llvm::Type::getDoubleTy(context), "conv");
+        if (right->getType()->isIntegerTy(32))
+            right = builder.CreateSIToFP(right, llvm::Type::getDoubleTy(context), "conv");
+    }
+
+    // Arithmetic operators
+    if (expr->op == "+") {
+        return isFloat ? builder.CreateFAdd(left, right, "addtmp")
+                       : builder.CreateAdd(left, right, "addtmp");
+    }
+    if (expr->op == "-") {
+        return isFloat ? builder.CreateFSub(left, right, "subtmp")
+                       : builder.CreateSub(left, right, "subtmp");
+    }
+    if (expr->op == "*") {
+        return isFloat ? builder.CreateFMul(left, right, "multmp")
+                       : builder.CreateMul(left, right, "multmp");
+    }
+    if (expr->op == "/") {
+        return isFloat ? builder.CreateFDiv(left, right, "divtmp")
+                       : builder.CreateSDiv(left, right, "divtmp");
+    }
+
+    // Comparison operators
+    if (expr->op == "==") {
+        return isFloat ? builder.CreateFCmpOEQ(left, right, "eqtmp")
+                       : builder.CreateICmpEQ(left, right, "eqtmp");
+    }
+    if (expr->op == "!=") {
+        return isFloat ? builder.CreateFCmpONE(left, right, "netmp")
+                       : builder.CreateICmpNE(left, right, "netmp");
+    }
+    if (expr->op == "<") {
+        return isFloat ? builder.CreateFCmpOLT(left, right, "lttmp")
+                       : builder.CreateICmpSLT(left, right, "lttmp");
+    }
+    if (expr->op == ">") {
+        return isFloat ? builder.CreateFCmpOGT(left, right, "gttmp")
+                       : builder.CreateICmpSGT(left, right, "gttmp");
+    }
+    if (expr->op == "<=") {
+        return isFloat ? builder.CreateFCmpOLE(left, right, "letmp")
+                       : builder.CreateICmpSLE(left, right, "letmp");
+    }
+    if (expr->op == ">=") {
+        return isFloat ? builder.CreateFCmpOGE(left, right, "getmp")
+                       : builder.CreateICmpSGE(left, right, "getmp");
+    }
+
+    llvm::errs() << "Unknown binary operator: " << expr->op << "\n";
+    return nullptr;
+}
+
+llvm::Value* CodeGenerator::generateUnaryExpr(UnaryExpr* expr) {
+    llvm::Value* operand = generateExpr(expr->operand.get());
+    if (!operand) return nullptr;
+
+    if (expr->op == "-") {
+        if (operand->getType()->isDoubleTy()) {
+            return builder.CreateFNeg(operand, "negtmp");
+        }
+        return builder.CreateNeg(operand, "negtmp");
+    }
+    if (expr->op == "!") {
+        if (operand->getType()->isIntegerTy(32)) {
+            operand = builder.CreateICmpNE(operand, llvm::ConstantInt::get(context, llvm::APInt(32, 0)), "tobool");
+        }
+        return builder.CreateNot(operand, "nottmp");
+    }
+
+    llvm::errs() << "Unknown unary operator: " << expr->op << "\n";
+    return nullptr;
+}
+
+llvm::Value* CodeGenerator::generateCallExpr(CallExpr* expr) {
+    auto* callee = module->getFunction(expr->callee);
+    if (!callee) {
+        llvm::errs() << "Unknown function: " << expr->callee << "\n";
+        return nullptr;
+    }
+
+    std::vector<llvm::Value*> args;
+    for (auto& arg : expr->args) {
+        llvm::Value* val = generateExpr(arg.get());
+        if (!val) return nullptr;
+        args.push_back(val);
+    }
+
+    return builder.CreateCall(callee, args, "calltmp");
 }

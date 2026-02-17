@@ -1,5 +1,4 @@
 #include "ast.h"
 
-// Implement any necessary functions related to AST nodes.
-// For example:
-ASTNode::ASTNode(ASTNodeType type, const std::string& value) : type(type), value(value) {}
+// AST node implementations are all inline in the header.
+// This file is kept for future AST utilities (e.g., pretty-printing).
