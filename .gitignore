@@ -1,12 +1,14 @@
 # Build directories
 /build/
 /cmake-build-debug/
+/cmake-build-release/
 
 # CMake generated files
-/CMakeFiles/
-/CMakeCache.txt
-/cmake_install.cmake
-/Makefile
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+compile_commands.json
 
 # Object files and executables
 *.o
@@ -15,17 +17,18 @@
 *.out
 *.a
 *.so
+*.dylib
 
 # Generated LLVM files
 *.ll
 *.bc
-output.o
-output.ll
 
 # OS and editor specific files
 .DS_Store
 *.swp
+*.swo
 .vscode/
+.idea/
 
 # Log files and temporary files
 *.log
