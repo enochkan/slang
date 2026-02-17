@@ -34,5 +34,6 @@ compile_commands.json
 *.log
 *.tmp
 
-# Claude Code memory (session-local AI context)
+# Claude Code (session-local AI context)
 memory/
+CLAUDE.md
