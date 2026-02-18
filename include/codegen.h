@@ -5,6 +5,7 @@
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include <unordered_map>
+#include <vector>
 #include <memory>
 #include <string>
 
@@ -14,8 +15,9 @@ struct VarInfo {
     llvm::AllocaInst* alloca;
     SlangType type;
     bool isMutable;
-    SlangType elemType = SlangType::I32; // only used when type == Array
-    int arraySize = -1;                  // only used when type == Array
+    SlangType elemType = SlangType::I32; // for arrays
+    int arraySize = -1;                  // for arrays
+    std::string structName;              // for structs and struct-arrays
 };
 
 class CodeGenerator {
@@ -31,7 +33,14 @@ private:
 
     llvm::FunctionCallee printfFunc;
 
+    // Struct registry
+    std::unordered_map<std::string, std::vector<StructField>> structDefs;
+    std::unordered_map<std::string, llvm::StructType*> llvmStructTypes;
+
     // Helpers
+    void generateStructDecl(StructDecl& s);
+    int getFieldIndex(const std::string& structName, const std::string& fieldName);
+    llvm::StructType* getSoAType(const std::string& structName, int size);
     void declarePrintf();
     void emitIR(const std::string& filename);
     void emitObjectFile(const std::string& filename, llvm::TargetMachine* TM);
@@ -55,6 +64,7 @@ private:
     void generateWhileStmt(WhileStmt* stmt);
     void generateForStmt(ForStmt* stmt);
     void generateArrayAssignStmt(ArrayAssignStmt* stmt);
+    void generateFieldAssignStmt(FieldAssignStmt* stmt);
 
     // Expressions
     llvm::Value* generateExpr(ExprNode* expr);
@@ -66,6 +76,7 @@ private:
     llvm::Value* generateUnaryExpr(UnaryExpr* expr);
     llvm::Value* generateCallExpr(CallExpr* expr);
     llvm::Value* generateArrayIndexExpr(ArrayIndexExpr* expr);
+    llvm::Value* generateFieldAccessExpr(FieldAccessExpr* expr);
 };
 
 #endif

@@ -47,10 +47,34 @@ SlangType Parser::parseType() {
 
 std::unique_ptr<Program> Parser::parseProgram() {
     auto program = std::make_unique<Program>();
+    // Struct declarations must come before function declarations so that
+    // parsePrimary can recognise struct names when parsing function bodies.
+    while (check(TokenType::KW_STRUCT)) {
+        auto s = parseStructDecl();
+        structNames.insert(s->name);
+        program->structs.push_back(std::move(s));
+    }
     while (!check(TokenType::END_OF_FILE)) {
         program->functions.push_back(parseFnDecl());
     }
     return program;
+}
+
+std::unique_ptr<StructDecl> Parser::parseStructDecl() {
+    expect(TokenType::KW_STRUCT, "Expected 'struct'");
+    Token name = expect(TokenType::IDENTIFIER, "Expected struct name");
+    expect(TokenType::LBRACE, "Expected '{' after struct name");
+
+    std::vector<StructField> fields;
+    while (!check(TokenType::RBRACE) && !check(TokenType::END_OF_FILE)) {
+        Token fieldName = expect(TokenType::IDENTIFIER, "Expected field name");
+        expect(TokenType::COLON, "Expected ':' after field name");
+        SlangType fieldType = parseType();
+        fields.emplace_back(fieldName.value, fieldType);
+        if (!match(TokenType::COMMA)) break; // trailing comma optional
+    }
+    expect(TokenType::RBRACE, "Expected '}' after struct fields");
+    return std::make_unique<StructDecl>(name.value, std::move(fields));
 }
 
 std::unique_ptr<FnDecl> Parser::parseFnDecl() {
@@ -106,9 +130,25 @@ std::unique_ptr<LetStmt> Parser::parseLetStmt() {
     Token name = expect(TokenType::IDENTIFIER, "Expected variable name");
     expect(TokenType::COLON, "Expected ':' after variable name");
 
-    // Array type annotation: [elemType; N]
+    // Array type: [elemType; N]  or  [StructName; N]
     if (check(TokenType::LBRACKET)) {
         advance(); // consume '['
+
+        if (check(TokenType::IDENTIFIER)) {
+            // Struct-array: [Point; N]  — initializer is optional (zero-init by default)
+            std::string sName = currentToken.value;
+            advance();
+            expect(TokenType::SEMICOLON, "Expected ';' in array type (e.g. [Point; 3])");
+            Token sizeTok = expect(TokenType::INT_LITERAL, "Expected array size");
+            int sz = std::stoi(sizeTok.value);
+            expect(TokenType::RBRACKET, "Expected ']' after array type");
+            std::unique_ptr<ExprNode> init = nullptr;
+            if (match(TokenType::EQUALS)) init = parseExpression();
+            expect(TokenType::SEMICOLON, "Expected ';' after let statement");
+            return std::make_unique<LetStmt>(name.value, sName, sz, isMutable, std::move(init));
+        }
+
+        // Scalar-array: [i32; 5]
         SlangType elemType = parseType();
         expect(TokenType::SEMICOLON, "Expected ';' in array type (e.g. [i32; 5])");
         Token sizeTok = expect(TokenType::INT_LITERAL, "Expected array size");
@@ -120,6 +160,17 @@ std::unique_ptr<LetStmt> Parser::parseLetStmt() {
         return std::make_unique<LetStmt>(name.value, elemType, arraySize, isMutable, std::move(initializer));
     }
 
+    // Struct type: let p: Point = Point { ... }
+    if (check(TokenType::IDENTIFIER)) {
+        std::string sName = currentToken.value;
+        advance();
+        expect(TokenType::EQUALS, "Expected '=' in let statement");
+        auto initializer = parseExpression(); // will parse StructInitExpr via parsePrimary
+        expect(TokenType::SEMICOLON, "Expected ';' after let statement");
+        return std::make_unique<LetStmt>(name.value, sName, isMutable, std::move(initializer));
+    }
+
+    // Scalar: i32 / f64 / bool
     SlangType type = parseType();
     expect(TokenType::EQUALS, "Expected '=' in let statement");
     auto initializer = parseExpression();
@@ -186,17 +237,41 @@ std::unique_ptr<StmtNode> Parser::parseAssignOrExprStmt() {
             return std::make_unique<AssignStmt>(name.value, std::move(value));
         }
 
-        // Array index assignment: name[index] = expr;
+        // Struct field assignment: name.field = expr;
+        if (peeked.type == TokenType::DOT) {
+            std::string varName = currentToken.value;
+            advance(); // consume identifier
+            advance(); // consume '.'
+            Token fieldTok = expect(TokenType::IDENTIFIER, "Expected field name");
+            expect(TokenType::EQUALS, "Expected '=' in field assignment");
+            auto value = parseExpression();
+            expect(TokenType::SEMICOLON, "Expected ';' after field assignment");
+            return std::make_unique<FieldAssignStmt>(varName, nullptr, fieldTok.value, std::move(value));
+        }
+
+        // Array index or SoA field assignment: name[index] = expr  or  name[index].field = expr
         if (peeked.type == TokenType::LBRACKET) {
-            std::string name = currentToken.value;
+            std::string varName = currentToken.value;
             advance(); // consume identifier
             advance(); // consume '['
             auto index = parseExpression();
             expect(TokenType::RBRACKET, "Expected ']' after index");
+
+            // SoA field assignment: name[index].field = expr
+            if (check(TokenType::DOT)) {
+                advance(); // consume '.'
+                Token fieldTok = expect(TokenType::IDENTIFIER, "Expected field name");
+                expect(TokenType::EQUALS, "Expected '=' in SoA field assignment");
+                auto value = parseExpression();
+                expect(TokenType::SEMICOLON, "Expected ';' after SoA field assignment");
+                return std::make_unique<FieldAssignStmt>(varName, std::move(index), fieldTok.value, std::move(value));
+            }
+
+            // Plain array assignment: name[index] = expr
             expect(TokenType::EQUALS, "Expected '=' in array assignment");
             auto value = parseExpression();
             expect(TokenType::SEMICOLON, "Expected ';' after array assignment");
-            return std::make_unique<ArrayAssignStmt>(name, std::move(index), std::move(value));
+            return std::make_unique<ArrayAssignStmt>(varName, std::move(index), std::move(value));
         }
     }
 
@@ -315,17 +390,48 @@ std::unique_ptr<ExprNode> Parser::parsePrimary() {
         return std::make_unique<ArrayLiteralExpr>(std::move(elements));
     }
 
-    // Identifier, function call, or array index read
+    // Identifier: variable, function call, array index, struct init, or field access
     if (check(TokenType::IDENTIFIER)) {
         std::string name = currentToken.value;
         advance();
 
-        // Array index read: name[expr]
+        // Struct init: Name { field: val, ... }
+        // Only when name is a known struct (avoids if/while block ambiguity).
+        if (structNames.count(name) && check(TokenType::LBRACE)) {
+            advance(); // consume '{'
+            std::vector<std::pair<std::string, std::unique_ptr<ExprNode>>> fields;
+            while (!check(TokenType::RBRACE) && !check(TokenType::END_OF_FILE)) {
+                Token fieldName = expect(TokenType::IDENTIFIER, "Expected field name");
+                expect(TokenType::COLON, "Expected ':' after field name");
+                auto val = parseExpression();
+                fields.push_back({fieldName.value, std::move(val)});
+                if (!match(TokenType::COMMA)) break;
+            }
+            expect(TokenType::RBRACE, "Expected '}' after struct fields");
+            return std::make_unique<StructInitExpr>(name, std::move(fields));
+        }
+
+        // Array index read: name[expr]  or SoA field read: name[expr].field
         if (check(TokenType::LBRACKET)) {
             advance(); // consume '['
             auto index = parseExpression();
             expect(TokenType::RBRACKET, "Expected ']' after index");
+
+            // SoA field read: name[expr].field
+            if (check(TokenType::DOT)) {
+                advance(); // consume '.'
+                Token fieldTok = expect(TokenType::IDENTIFIER, "Expected field name");
+                return std::make_unique<FieldAccessExpr>(name, std::move(index), fieldTok.value);
+            }
+
             return std::make_unique<ArrayIndexExpr>(name, std::move(index));
+        }
+
+        // Scalar struct field read: name.field
+        if (check(TokenType::DOT)) {
+            advance(); // consume '.'
+            Token fieldTok = expect(TokenType::IDENTIFIER, "Expected field name");
+            return std::make_unique<FieldAccessExpr>(name, nullptr, fieldTok.value);
         }
 
         // Function call: name(args)

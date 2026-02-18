@@ -5,6 +5,7 @@
 #include "ast.h"
 #include <stdexcept>
 #include <memory>
+#include <unordered_set>
 
 class ParseError : public std::runtime_error {
 public:
@@ -22,6 +23,7 @@ public:
 private:
     Lexer& lexer;
     Token currentToken;
+    std::unordered_set<std::string> structNames; // populated while parsing struct decls
 
     // Helpers
     void advance();
@@ -31,6 +33,7 @@ private:
     SlangType parseType();
 
     // Top-level
+    std::unique_ptr<StructDecl> parseStructDecl();
     std::unique_ptr<FnDecl> parseFnDecl();
 
     // Statements

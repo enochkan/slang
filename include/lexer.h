@@ -22,6 +22,7 @@ enum class TokenType {
     KW_WHILE,
     KW_FOR,
     KW_IN,
+    KW_STRUCT,
     KW_PRINT,
     KW_TRUE,
     KW_FALSE,
@@ -64,6 +65,7 @@ enum class TokenType {
     COLON,
     SEMICOLON,
     DOTDOT,
+    DOT,
 
     // Arrow
     ARROW,

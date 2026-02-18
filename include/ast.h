@@ -10,7 +10,8 @@ enum class SlangType {
     F64,
     Bool,
     Void,
-    Array
+    Array,
+    Struct
 };
 
 // --- Expression Nodes ---
@@ -68,6 +69,26 @@ struct ArrayLiteralExpr : ExprNode {
         : elements(std::move(elements)) {}
 };
 
+// Struct initialization: Point { x: 1.0, y: 2.0 }
+// Only valid in let statement initializer position.
+struct StructInitExpr : ExprNode {
+    std::string structName;
+    std::vector<std::pair<std::string, std::unique_ptr<ExprNode>>> fields;
+    StructInitExpr(const std::string& sn,
+                   std::vector<std::pair<std::string, std::unique_ptr<ExprNode>>> f)
+        : structName(sn), fields(std::move(f)) {}
+};
+
+// Field access — works for both scalar structs (p.x) and SoA arrays (points[i].x).
+// arrayIndex is nullptr for scalar struct access.
+struct FieldAccessExpr : ExprNode {
+    std::string varName;
+    std::unique_ptr<ExprNode> arrayIndex;
+    std::string field;
+    FieldAccessExpr(const std::string& vn, std::unique_ptr<ExprNode> idx, const std::string& f)
+        : varName(vn), arrayIndex(std::move(idx)), field(f) {}
+};
+
 // Array index read: arr[i]
 struct ArrayIndexExpr : ExprNode {
     std::string name;
@@ -86,19 +107,34 @@ struct LetStmt : StmtNode {
     std::string name;
     SlangType type;
     bool isMutable;
-    std::unique_ptr<ExprNode> initializer;
-    // Array-specific fields (only valid when type == Array)
+    std::unique_ptr<ExprNode> initializer; // may be nullptr for struct arrays
+    // Array fields (type == Array)
     SlangType elemType = SlangType::I32;
     int arraySize = -1;
+    // Struct name (type == Struct, or type == Array && elemType == Struct)
+    std::string structName;
 
-    // Scalar constructor
-    LetStmt(const std::string& name, SlangType type, bool isMutable, std::unique_ptr<ExprNode> initializer)
-        : name(name), type(type), isMutable(isMutable), initializer(std::move(initializer)) {}
+    // Scalar constructor (i32, f64, bool)
+    LetStmt(const std::string& name, SlangType type, bool isMutable, std::unique_ptr<ExprNode> init)
+        : name(name), type(type), isMutable(isMutable), initializer(std::move(init)) {}
 
-    // Array constructor
-    LetStmt(const std::string& name, SlangType elemType, int arraySize, bool isMutable, std::unique_ptr<ExprNode> initializer)
-        : name(name), type(SlangType::Array), isMutable(isMutable), initializer(std::move(initializer)),
+    // Scalar-array constructor: let arr: [i32; N] = [...]
+    LetStmt(const std::string& name, SlangType elemType, int arraySize, bool isMutable,
+            std::unique_ptr<ExprNode> init)
+        : name(name), type(SlangType::Array), isMutable(isMutable), initializer(std::move(init)),
           elemType(elemType), arraySize(arraySize) {}
+
+    // Struct constructor: let p: Point = Point { ... }
+    LetStmt(const std::string& name, const std::string& sName, bool isMutable,
+            std::unique_ptr<ExprNode> init)
+        : name(name), type(SlangType::Struct), isMutable(isMutable), initializer(std::move(init)),
+          structName(sName) {}
+
+    // Struct-array constructor: let mut ps: [Point; N]  (init may be nullptr → zero init)
+    LetStmt(const std::string& name, const std::string& sName, int arraySize, bool isMutable,
+            std::unique_ptr<ExprNode> init)
+        : name(name), type(SlangType::Array), isMutable(isMutable), initializer(std::move(init)),
+          elemType(SlangType::Struct), arraySize(arraySize), structName(sName) {}
 };
 
 struct AssignStmt : StmtNode {
@@ -148,6 +184,18 @@ struct WhileStmt : StmtNode {
         : condition(std::move(condition)), body(std::move(body)) {}
 };
 
+// Field assignment — works for scalar structs (p.x = val) and SoA arrays (points[i].x = val).
+// arrayIndex is nullptr for scalar struct assignment.
+struct FieldAssignStmt : StmtNode {
+    std::string varName;
+    std::unique_ptr<ExprNode> arrayIndex;
+    std::string field;
+    std::unique_ptr<ExprNode> value;
+    FieldAssignStmt(const std::string& vn, std::unique_ptr<ExprNode> idx,
+                    const std::string& f, std::unique_ptr<ExprNode> val)
+        : varName(vn), arrayIndex(std::move(idx)), field(f), value(std::move(val)) {}
+};
+
 // Array index write: arr[i] = val
 struct ArrayAssignStmt : StmtNode {
     std::string name;
@@ -170,6 +218,19 @@ struct ForStmt : StmtNode {
 
 // --- Top-level ---
 
+struct StructField {
+    std::string name;
+    SlangType type;
+    StructField(const std::string& name, SlangType type) : name(name), type(type) {}
+};
+
+struct StructDecl {
+    std::string name;
+    std::vector<StructField> fields;
+    StructDecl(const std::string& name, std::vector<StructField> fields)
+        : name(name), fields(std::move(fields)) {}
+};
+
 struct FnParam {
     std::string name;
     SlangType type;
@@ -187,6 +248,7 @@ struct FnDecl {
 };
 
 struct Program {
+    std::vector<std::unique_ptr<StructDecl>> structs;
     std::vector<std::unique_ptr<FnDecl>> functions;
 };
 

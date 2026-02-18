@@ -4,7 +4,6 @@
 
 ### Roadmap
 - [ ] Add `string` type and string literals
-- [ ] Add structs
 - [ ] Add proper semantic analysis phase with user-facing error messages
 - [ ] Add enums and `match` expressions
 - [ ] Add SoA (Struct of Arrays) memory layout for structs (`#[columnar]`)
@@ -12,6 +11,40 @@
 - [ ] Add `comptime` compile-time evaluation
 - [ ] Add SIMD vector types (`f64x4`, etc.)
 - [ ] Add unchecked array access opt-in (`arr[i]!`)
+
+---
+
+## [0.4.0] - 2026-02-18
+
+### Added
+- **`struct` declarations** — named composite types with typed fields
+  ```
+  struct Vec2 { x: f64, y: f64, }
+  ```
+- **Scalar struct variables** — `let [mut] p: Point = Point { x: 1.0, y: 2.0 };`
+- **Struct field read** — `p.x` in any expression context
+- **Struct field write** — `p.x = val;` (mutable structs only)
+- **SoA (Struct of Arrays) arrays** — `let [mut] points: [Vec2; N];`
+  - Memory layout is `{ [N x f64], [N x f64] }` not `[N x {f64, f64}]`
+  - All `x` values are stored contiguously → cache-friendly, auto-vectorisable loops
+  - Zero-initialised by default; no explicit initialiser required
+- **SoA field read** — `points[i].x` in any expression context
+- **SoA field write** — `points[i].x = val;` (mutable arrays only)
+- **New tokens**: `struct`, `.`
+- **Struct registry** in codegen (`structDefs`, `llvmStructTypes`) keyed by struct name
+- **`getSoAType()`** helper builds the SoA LLVM struct type for a given struct + size
+- **Example program**: `examples/structs.sl` — scalar structs, SoA arrays, particle sim step
+
+### Changed
+- `Program` AST node now carries `structs` vector alongside `functions`
+- `LetStmt` extended with two new constructors (struct, struct-array) and `structName` field
+- `VarInfo` extended with `structName` for struct and struct-array symbol table entries
+- `parseProgram()` now parses struct declarations first to populate `structNames` set,
+  allowing `parsePrimary` to safely recognise struct init literals without ambiguity
+
+### Architecture Note
+- Struct declarations **must precede** function declarations in source files (enforced by parser)
+- Struct init `Name { ... }` is only valid in let-statement initialiser position
 
 ---
 

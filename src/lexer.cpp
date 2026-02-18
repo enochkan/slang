@@ -11,6 +11,7 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"while",  TokenType::KW_WHILE},
     {"for",    TokenType::KW_FOR},
     {"in",     TokenType::KW_IN},
+    {"struct", TokenType::KW_STRUCT},
     {"print",  TokenType::KW_PRINT},
     {"true",   TokenType::KW_TRUE},
     {"false",  TokenType::KW_FALSE},
@@ -158,8 +159,7 @@ Token Lexer::getNextToken() {
                 advance();
                 return Token(TokenType::DOTDOT, "..", line, startCol);
             }
-            // Single '.' not currently supported
-            break;
+            return Token(TokenType::DOT, ".", line, startCol);
 
         case '-':
             advance();
@@ -245,6 +245,7 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::KW_WHILE:     return "KW_WHILE";
         case TokenType::KW_FOR:       return "KW_FOR";
         case TokenType::KW_IN:        return "KW_IN";
+        case TokenType::KW_STRUCT:    return "KW_STRUCT";
         case TokenType::KW_PRINT:     return "KW_PRINT";
         case TokenType::KW_TRUE:      return "KW_TRUE";
         case TokenType::KW_FALSE:     return "KW_FALSE";
@@ -272,6 +273,7 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::LBRACKET:     return "LBRACKET";
         case TokenType::RBRACKET:     return "RBRACKET";
         case TokenType::DOTDOT:       return "DOTDOT";
+        case TokenType::DOT:          return "DOT";
         case TokenType::COMMA:        return "COMMA";
         case TokenType::COLON:        return "COLON";
         case TokenType::SEMICOLON:    return "SEMICOLON";
