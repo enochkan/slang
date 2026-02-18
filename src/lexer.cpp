@@ -9,6 +9,8 @@ const std::unordered_map<std::string, TokenType> Lexer::keywords = {
     {"if",     TokenType::KW_IF},
     {"else",   TokenType::KW_ELSE},
     {"while",  TokenType::KW_WHILE},
+    {"for",    TokenType::KW_FOR},
+    {"in",     TokenType::KW_IN},
     {"print",  TokenType::KW_PRINT},
     {"true",   TokenType::KW_TRUE},
     {"false",  TokenType::KW_FALSE},
@@ -140,13 +142,24 @@ Token Lexer::getNextToken() {
     switch (currentChar) {
         case '+': advance(); return Token(TokenType::PLUS, "+", line, startCol);
         case '*': advance(); return Token(TokenType::STAR, "*", line, startCol);
-        case '(': advance(); return Token(TokenType::LPAREN, "(", line, startCol);
-        case ')': advance(); return Token(TokenType::RPAREN, ")", line, startCol);
-        case '{': advance(); return Token(TokenType::LBRACE, "{", line, startCol);
-        case '}': advance(); return Token(TokenType::RBRACE, "}", line, startCol);
-        case ',': advance(); return Token(TokenType::COMMA, ",", line, startCol);
-        case ':': advance(); return Token(TokenType::COLON, ":", line, startCol);
+        case '(': advance(); return Token(TokenType::LPAREN,    "(", line, startCol);
+        case ')': advance(); return Token(TokenType::RPAREN,    ")", line, startCol);
+        case '{': advance(); return Token(TokenType::LBRACE,    "{", line, startCol);
+        case '}': advance(); return Token(TokenType::RBRACE,    "}", line, startCol);
+        case '[': advance(); return Token(TokenType::LBRACKET,  "[", line, startCol);
+        case ']': advance(); return Token(TokenType::RBRACKET,  "]", line, startCol);
+        case ',': advance(); return Token(TokenType::COMMA,     ",", line, startCol);
+        case ':': advance(); return Token(TokenType::COLON,     ":", line, startCol);
         case ';': advance(); return Token(TokenType::SEMICOLON, ";", line, startCol);
+
+        case '.':
+            advance();
+            if (currentChar == '.') {
+                advance();
+                return Token(TokenType::DOTDOT, "..", line, startCol);
+            }
+            // Single '.' not currently supported
+            break;
 
         case '-':
             advance();
@@ -230,6 +243,8 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::KW_IF:        return "KW_IF";
         case TokenType::KW_ELSE:      return "KW_ELSE";
         case TokenType::KW_WHILE:     return "KW_WHILE";
+        case TokenType::KW_FOR:       return "KW_FOR";
+        case TokenType::KW_IN:        return "KW_IN";
         case TokenType::KW_PRINT:     return "KW_PRINT";
         case TokenType::KW_TRUE:      return "KW_TRUE";
         case TokenType::KW_FALSE:     return "KW_FALSE";
@@ -254,6 +269,9 @@ std::string tokenTypeToString(TokenType type) {
         case TokenType::RPAREN:       return "RPAREN";
         case TokenType::LBRACE:       return "LBRACE";
         case TokenType::RBRACE:       return "RBRACE";
+        case TokenType::LBRACKET:     return "LBRACKET";
+        case TokenType::RBRACKET:     return "RBRACKET";
+        case TokenType::DOTDOT:       return "DOTDOT";
         case TokenType::COMMA:        return "COMMA";
         case TokenType::COLON:        return "COLON";
         case TokenType::SEMICOLON:    return "SEMICOLON";

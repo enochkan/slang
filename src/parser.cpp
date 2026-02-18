@@ -94,6 +94,7 @@ std::unique_ptr<StmtNode> Parser::parseStatement() {
     if (check(TokenType::KW_LET))    return parseLetStmt();
     if (check(TokenType::KW_IF))     return parseIfStmt();
     if (check(TokenType::KW_WHILE))  return parseWhileStmt();
+    if (check(TokenType::KW_FOR))    return parseForStmt();
     if (check(TokenType::KW_PRINT))  return parsePrintStmt();
     if (check(TokenType::KW_RETURN)) return parseReturnStmt();
     return parseAssignOrExprStmt();
@@ -104,11 +105,37 @@ std::unique_ptr<LetStmt> Parser::parseLetStmt() {
     bool isMutable = match(TokenType::KW_MUT);
     Token name = expect(TokenType::IDENTIFIER, "Expected variable name");
     expect(TokenType::COLON, "Expected ':' after variable name");
+
+    // Array type annotation: [elemType; N]
+    if (check(TokenType::LBRACKET)) {
+        advance(); // consume '['
+        SlangType elemType = parseType();
+        expect(TokenType::SEMICOLON, "Expected ';' in array type (e.g. [i32; 5])");
+        Token sizeTok = expect(TokenType::INT_LITERAL, "Expected array size");
+        int arraySize = std::stoi(sizeTok.value);
+        expect(TokenType::RBRACKET, "Expected ']' after array type");
+        expect(TokenType::EQUALS, "Expected '=' in let statement");
+        auto initializer = parseExpression();
+        expect(TokenType::SEMICOLON, "Expected ';' after let statement");
+        return std::make_unique<LetStmt>(name.value, elemType, arraySize, isMutable, std::move(initializer));
+    }
+
     SlangType type = parseType();
     expect(TokenType::EQUALS, "Expected '=' in let statement");
     auto initializer = parseExpression();
     expect(TokenType::SEMICOLON, "Expected ';' after let statement");
     return std::make_unique<LetStmt>(name.value, type, isMutable, std::move(initializer));
+}
+
+std::unique_ptr<ForStmt> Parser::parseForStmt() {
+    expect(TokenType::KW_FOR, "Expected 'for'");
+    Token var = expect(TokenType::IDENTIFIER, "Expected loop variable name");
+    expect(TokenType::KW_IN, "Expected 'in' after loop variable");
+    auto start = parseExpression(); // stops naturally before '..' (not an operator)
+    expect(TokenType::DOTDOT, "Expected '..' in range expression");
+    auto end = parseExpression();
+    auto body = parseBlock();
+    return std::make_unique<ForStmt>(var.value, std::move(start), std::move(end), std::move(body));
 }
 
 std::unique_ptr<IfStmt> Parser::parseIfStmt() {
@@ -146,9 +173,10 @@ std::unique_ptr<ReturnStmt> Parser::parseReturnStmt() {
 }
 
 std::unique_ptr<StmtNode> Parser::parseAssignOrExprStmt() {
-    // Check if this is an assignment: IDENTIFIER = expr;
     if (check(TokenType::IDENTIFIER)) {
         Token peeked = lexer.peekToken();
+
+        // Scalar assignment: name = expr;
         if (peeked.type == TokenType::EQUALS) {
             Token name = currentToken;
             advance(); // consume identifier
@@ -156,6 +184,19 @@ std::unique_ptr<StmtNode> Parser::parseAssignOrExprStmt() {
             auto value = parseExpression();
             expect(TokenType::SEMICOLON, "Expected ';' after assignment");
             return std::make_unique<AssignStmt>(name.value, std::move(value));
+        }
+
+        // Array index assignment: name[index] = expr;
+        if (peeked.type == TokenType::LBRACKET) {
+            std::string name = currentToken.value;
+            advance(); // consume identifier
+            advance(); // consume '['
+            auto index = parseExpression();
+            expect(TokenType::RBRACKET, "Expected ']' after index");
+            expect(TokenType::EQUALS, "Expected '=' in array assignment");
+            auto value = parseExpression();
+            expect(TokenType::SEMICOLON, "Expected ';' after array assignment");
+            return std::make_unique<ArrayAssignStmt>(name, std::move(index), std::move(value));
         }
     }
 
@@ -260,10 +301,32 @@ std::unique_ptr<ExprNode> Parser::parsePrimary() {
         return std::make_unique<BoolLiteralExpr>(val);
     }
 
-    // Identifier or function call
+    // Array literal: [expr, expr, ...]
+    if (check(TokenType::LBRACKET)) {
+        advance(); // consume '['
+        std::vector<std::unique_ptr<ExprNode>> elements;
+        if (!check(TokenType::RBRACKET)) {
+            elements.push_back(parseExpression());
+            while (match(TokenType::COMMA)) {
+                elements.push_back(parseExpression());
+            }
+        }
+        expect(TokenType::RBRACKET, "Expected ']' after array elements");
+        return std::make_unique<ArrayLiteralExpr>(std::move(elements));
+    }
+
+    // Identifier, function call, or array index read
     if (check(TokenType::IDENTIFIER)) {
         std::string name = currentToken.value;
         advance();
+
+        // Array index read: name[expr]
+        if (check(TokenType::LBRACKET)) {
+            advance(); // consume '['
+            auto index = parseExpression();
+            expect(TokenType::RBRACKET, "Expected ']' after index");
+            return std::make_unique<ArrayIndexExpr>(name, std::move(index));
+        }
 
         // Function call: name(args)
         if (check(TokenType::LPAREN)) {

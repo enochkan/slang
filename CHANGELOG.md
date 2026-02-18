@@ -4,9 +4,7 @@
 
 ### Roadmap
 - [ ] Add `string` type and string literals
-- [ ] Add `for` loops and ranges (`for i in 0..10`)
 - [ ] Add structs
-- [ ] Add arrays and slices
 - [ ] Add proper semantic analysis phase with user-facing error messages
 - [ ] Add enums and `match` expressions
 - [ ] Add SoA (Struct of Arrays) memory layout for structs (`#[columnar]`)
@@ -14,6 +12,30 @@
 - [ ] Add `comptime` compile-time evaluation
 - [ ] Add SIMD vector types (`f64x4`, etc.)
 - [ ] Add unchecked array access opt-in (`arr[i]!`)
+
+---
+
+## [0.3.0] - 2026-02-18
+
+### Added
+- **Arrays** — fixed-size stack-allocated arrays with type annotation `[elemType; N]`
+  - Array literals: `let arr: [i32; 5] = [1, 2, 3, 4, 5];`
+  - Immutable and mutable arrays (`let mut arr: [i32; 3] = [0, 0, 0];`)
+  - Array index read: `arr[i]` (works in any expression context)
+  - Array index write: `arr[i] = val;` (mutable arrays only)
+  - LLVM codegen via `ArrayType::get` + `GEP` instructions
+- **`for` loops with range syntax** — `for i in start..end { body }`
+  - Loop variable is scoped to the loop body and immutable
+  - Dynamic ranges supported (`for i in 0..n` where `n` is a variable)
+  - Compiles to optimized condition/body/after basic block structure
+- **New tokens**: `[`, `]`, `..`, `for`, `in`
+- **Example program**: `examples/arrays.sl` — sum array, dot product with mutation
+
+### Changed
+- `LetStmt` AST node extended with `elemType` and `arraySize` fields for arrays
+- `VarInfo` in codegen extended with `elemType` and `arraySize` for symbol table tracking
+- Parser's `parsePrimary` now handles array literals and array index reads
+- Parser's `parseAssignOrExprStmt` now handles array index assignment
 
 ---
 

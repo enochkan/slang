@@ -14,6 +14,8 @@ struct VarInfo {
     llvm::AllocaInst* alloca;
     SlangType type;
     bool isMutable;
+    SlangType elemType = SlangType::I32; // only used when type == Array
+    int arraySize = -1;                  // only used when type == Array
 };
 
 class CodeGenerator {
@@ -51,6 +53,8 @@ private:
     void generateBlockStmt(BlockStmt* stmt);
     void generateIfStmt(IfStmt* stmt);
     void generateWhileStmt(WhileStmt* stmt);
+    void generateForStmt(ForStmt* stmt);
+    void generateArrayAssignStmt(ArrayAssignStmt* stmt);
 
     // Expressions
     llvm::Value* generateExpr(ExprNode* expr);
@@ -61,6 +65,7 @@ private:
     llvm::Value* generateBinaryExpr(BinaryExpr* expr);
     llvm::Value* generateUnaryExpr(UnaryExpr* expr);
     llvm::Value* generateCallExpr(CallExpr* expr);
+    llvm::Value* generateArrayIndexExpr(ArrayIndexExpr* expr);
 };
 
 #endif

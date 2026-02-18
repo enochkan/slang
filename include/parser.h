@@ -40,6 +40,7 @@ private:
     std::unique_ptr<WhileStmt> parseWhileStmt();
     std::unique_ptr<PrintStmt> parsePrintStmt();
     std::unique_ptr<ReturnStmt> parseReturnStmt();
+    std::unique_ptr<ForStmt> parseForStmt();
     std::unique_ptr<StmtNode> parseAssignOrExprStmt();
     std::unique_ptr<BlockStmt> parseBlock();
 

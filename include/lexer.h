@@ -20,6 +20,8 @@ enum class TokenType {
     KW_IF,
     KW_ELSE,
     KW_WHILE,
+    KW_FOR,
+    KW_IN,
     KW_PRINT,
     KW_TRUE,
     KW_FALSE,
@@ -56,9 +58,12 @@ enum class TokenType {
     RPAREN,
     LBRACE,
     RBRACE,
+    LBRACKET,
+    RBRACKET,
     COMMA,
     COLON,
     SEMICOLON,
+    DOTDOT,
 
     // Arrow
     ARROW,

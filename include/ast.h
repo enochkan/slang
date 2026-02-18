@@ -9,7 +9,8 @@ enum class SlangType {
     I32,
     F64,
     Bool,
-    Void
+    Void,
+    Array
 };
 
 // --- Expression Nodes ---
@@ -60,6 +61,21 @@ struct CallExpr : ExprNode {
         : callee(callee), args(std::move(args)) {}
 };
 
+// Array literal: [1, 2, 3]
+struct ArrayLiteralExpr : ExprNode {
+    std::vector<std::unique_ptr<ExprNode>> elements;
+    ArrayLiteralExpr(std::vector<std::unique_ptr<ExprNode>> elements)
+        : elements(std::move(elements)) {}
+};
+
+// Array index read: arr[i]
+struct ArrayIndexExpr : ExprNode {
+    std::string name;
+    std::unique_ptr<ExprNode> index;
+    ArrayIndexExpr(const std::string& name, std::unique_ptr<ExprNode> index)
+        : name(name), index(std::move(index)) {}
+};
+
 // --- Statement Nodes ---
 
 struct StmtNode {
@@ -71,8 +87,18 @@ struct LetStmt : StmtNode {
     SlangType type;
     bool isMutable;
     std::unique_ptr<ExprNode> initializer;
+    // Array-specific fields (only valid when type == Array)
+    SlangType elemType = SlangType::I32;
+    int arraySize = -1;
+
+    // Scalar constructor
     LetStmt(const std::string& name, SlangType type, bool isMutable, std::unique_ptr<ExprNode> initializer)
         : name(name), type(type), isMutable(isMutable), initializer(std::move(initializer)) {}
+
+    // Array constructor
+    LetStmt(const std::string& name, SlangType elemType, int arraySize, bool isMutable, std::unique_ptr<ExprNode> initializer)
+        : name(name), type(SlangType::Array), isMutable(isMutable), initializer(std::move(initializer)),
+          elemType(elemType), arraySize(arraySize) {}
 };
 
 struct AssignStmt : StmtNode {
@@ -120,6 +146,26 @@ struct WhileStmt : StmtNode {
     std::unique_ptr<BlockStmt> body;
     WhileStmt(std::unique_ptr<ExprNode> condition, std::unique_ptr<BlockStmt> body)
         : condition(std::move(condition)), body(std::move(body)) {}
+};
+
+// Array index write: arr[i] = val
+struct ArrayAssignStmt : StmtNode {
+    std::string name;
+    std::unique_ptr<ExprNode> index;
+    std::unique_ptr<ExprNode> value;
+    ArrayAssignStmt(const std::string& name, std::unique_ptr<ExprNode> index, std::unique_ptr<ExprNode> value)
+        : name(name), index(std::move(index)), value(std::move(value)) {}
+};
+
+// For loop: for i in start..end { body }
+struct ForStmt : StmtNode {
+    std::string varName;
+    std::unique_ptr<ExprNode> start;
+    std::unique_ptr<ExprNode> end;
+    std::unique_ptr<BlockStmt> body;
+    ForStmt(const std::string& varName, std::unique_ptr<ExprNode> start,
+            std::unique_ptr<ExprNode> end, std::unique_ptr<BlockStmt> body)
+        : varName(varName), start(std::move(start)), end(std::move(end)), body(std::move(body)) {}
 };
 
 // --- Top-level ---

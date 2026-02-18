@@ -65,6 +65,11 @@ SlangType CodeGenerator::inferExprType(ExprNode* expr) {
         if (unary->op == "!") return SlangType::Bool;
         return inferExprType(unary->operand.get());
     }
+    if (auto* idx = dynamic_cast<ArrayIndexExpr*>(expr)) {
+        auto it = namedValues.find(idx->name);
+        if (it != namedValues.end()) return it->second.elemType;
+        return SlangType::I32;
+    }
     if (auto* call = dynamic_cast<CallExpr*>(expr)) {
         auto* fn = module->getFunction(call->callee);
         if (fn) {
@@ -244,15 +249,38 @@ void CodeGenerator::generateStmt(StmtNode* stmt) {
     if (auto* s = dynamic_cast<ExprStmt*>(stmt))    return generateExprStmt(s);
     if (auto* s = dynamic_cast<PrintStmt*>(stmt))   return generatePrintStmt(s);
     if (auto* s = dynamic_cast<BlockStmt*>(stmt))   return generateBlockStmt(s);
-    if (auto* s = dynamic_cast<IfStmt*>(stmt))      return generateIfStmt(s);
-    if (auto* s = dynamic_cast<WhileStmt*>(stmt))   return generateWhileStmt(s);
+    if (auto* s = dynamic_cast<IfStmt*>(stmt))         return generateIfStmt(s);
+    if (auto* s = dynamic_cast<WhileStmt*>(stmt))      return generateWhileStmt(s);
+    if (auto* s = dynamic_cast<ForStmt*>(stmt))        return generateForStmt(s);
+    if (auto* s = dynamic_cast<ArrayAssignStmt*>(stmt)) return generateArrayAssignStmt(s);
 }
 
 void CodeGenerator::generateLetStmt(LetStmt* stmt) {
     auto* func = builder.GetInsertBlock()->getParent();
+
+    // Array declaration: let [mut] arr: [elemType; N] = [v0, v1, ...]
+    if (stmt->type == SlangType::Array) {
+        auto* elemLLVMType = getLLVMType(stmt->elemType);
+        auto* arrayType = llvm::ArrayType::get(elemLLVMType, stmt->arraySize);
+        auto* alloca = createEntryBlockAlloca(func, stmt->name, arrayType);
+
+        if (auto* arrLit = dynamic_cast<ArrayLiteralExpr*>(stmt->initializer.get())) {
+            for (int i = 0; i < (int)arrLit->elements.size(); i++) {
+                llvm::Value* elemVal = generateExpr(arrLit->elements[i].get());
+                auto* gep = builder.CreateGEP(arrayType, alloca,
+                    {builder.getInt32(0), builder.getInt32(i)}, "arr.init");
+                builder.CreateStore(elemVal, gep);
+            }
+        }
+
+        namedValues[stmt->name] = {alloca, SlangType::Array, stmt->isMutable,
+                                   stmt->elemType, stmt->arraySize};
+        return;
+    }
+
+    // Scalar declaration
     auto* type = getLLVMType(stmt->type);
     auto* alloca = createEntryBlockAlloca(func, stmt->name, type);
-
     llvm::Value* initVal = generateExpr(stmt->initializer.get());
 
     // Type conversion if needed
@@ -390,6 +418,72 @@ void CodeGenerator::generateWhileStmt(WhileStmt* stmt) {
     builder.SetInsertPoint(afterBB);
 }
 
+void CodeGenerator::generateArrayAssignStmt(ArrayAssignStmt* stmt) {
+    auto it = namedValues.find(stmt->name);
+    if (it == namedValues.end()) {
+        llvm::errs() << "Unknown array variable: " << stmt->name << "\n";
+        return;
+    }
+    if (!it->second.isMutable) {
+        llvm::errs() << "Cannot assign to immutable array: " << stmt->name << "\n";
+        return;
+    }
+
+    auto& info = it->second;
+    auto* arrayType = llvm::ArrayType::get(getLLVMType(info.elemType), info.arraySize);
+    llvm::Value* idx = generateExpr(stmt->index.get());
+    llvm::Value* val = generateExpr(stmt->value.get());
+
+    auto* gep = builder.CreateGEP(arrayType, info.alloca,
+        {builder.getInt32(0), idx}, "arr.idx");
+    builder.CreateStore(val, gep);
+}
+
+void CodeGenerator::generateForStmt(ForStmt* stmt) {
+    auto* func = builder.GetInsertBlock()->getParent();
+    auto* i32Ty = llvm::Type::getInt32Ty(context);
+
+    // Allocate and initialise the loop variable
+    auto* iAlloca = createEntryBlockAlloca(func, stmt->varName, i32Ty);
+    llvm::Value* startVal = generateExpr(stmt->start.get());
+    builder.CreateStore(startVal, iAlloca);
+
+    // Register as immutable (loop variable can't be reassigned by the user)
+    namedValues[stmt->varName] = {iAlloca, SlangType::I32, false};
+
+    auto* condBB  = llvm::BasicBlock::Create(context, "forcond", func);
+    auto* bodyBB  = llvm::BasicBlock::Create(context, "forbody");
+    auto* afterBB = llvm::BasicBlock::Create(context, "forafter");
+
+    builder.CreateBr(condBB);
+
+    // Condition: i < end (end is re-evaluated each iteration for dynamic ranges)
+    builder.SetInsertPoint(condBB);
+    llvm::Value* endVal = generateExpr(stmt->end.get());
+    llvm::Value* iVal   = builder.CreateLoad(i32Ty, iAlloca, stmt->varName);
+    llvm::Value* cond   = builder.CreateICmpSLT(iVal, endVal, "forcond");
+    builder.CreateCondBr(cond, bodyBB, afterBB);
+
+    // Body
+    func->insert(func->end(), bodyBB);
+    builder.SetInsertPoint(bodyBB);
+    generateBlockStmt(stmt->body.get());
+
+    // Increment i = i + 1 (unless body already has a terminator)
+    if (!builder.GetInsertBlock()->getTerminator()) {
+        llvm::Value* iCurr = builder.CreateLoad(i32Ty, iAlloca, "i.curr");
+        llvm::Value* iNext = builder.CreateAdd(iCurr, builder.getInt32(1), "i.next");
+        builder.CreateStore(iNext, iAlloca);
+        builder.CreateBr(condBB);
+    }
+
+    // After loop
+    func->insert(func->end(), afterBB);
+    builder.SetInsertPoint(afterBB);
+
+    namedValues.erase(stmt->varName);
+}
+
 // --- Expressions ---
 
 llvm::Value* CodeGenerator::generateExpr(ExprNode* expr) {
@@ -399,7 +493,8 @@ llvm::Value* CodeGenerator::generateExpr(ExprNode* expr) {
     if (auto* e = dynamic_cast<VariableExpr*>(expr))     return generateVariable(e);
     if (auto* e = dynamic_cast<BinaryExpr*>(expr))       return generateBinaryExpr(e);
     if (auto* e = dynamic_cast<UnaryExpr*>(expr))        return generateUnaryExpr(e);
-    if (auto* e = dynamic_cast<CallExpr*>(expr))         return generateCallExpr(e);
+    if (auto* e = dynamic_cast<CallExpr*>(expr))          return generateCallExpr(e);
+    if (auto* e = dynamic_cast<ArrayIndexExpr*>(expr))    return generateArrayIndexExpr(e);
 
     llvm::errs() << "Unknown expression type\n";
     return nullptr;
@@ -526,6 +621,23 @@ llvm::Value* CodeGenerator::generateUnaryExpr(UnaryExpr* expr) {
 
     llvm::errs() << "Unknown unary operator: " << expr->op << "\n";
     return nullptr;
+}
+
+llvm::Value* CodeGenerator::generateArrayIndexExpr(ArrayIndexExpr* expr) {
+    auto it = namedValues.find(expr->name);
+    if (it == namedValues.end()) {
+        llvm::errs() << "Unknown array variable: " << expr->name << "\n";
+        return nullptr;
+    }
+
+    auto& info = it->second;
+    auto* elemLLVMType = getLLVMType(info.elemType);
+    auto* arrayType = llvm::ArrayType::get(elemLLVMType, info.arraySize);
+    llvm::Value* idx = generateExpr(expr->index.get());
+
+    auto* gep = builder.CreateGEP(arrayType, info.alloca,
+        {builder.getInt32(0), idx}, "arr.idx");
+    return builder.CreateLoad(elemLLVMType, gep, "arr.load");
 }
 
 llvm::Value* CodeGenerator::generateCallExpr(CallExpr* expr) {
